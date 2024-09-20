@@ -20,13 +20,6 @@ type User struct {
 
 func handleRequest(req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
 
-	if req.RequestContext.HTTP.Method != "POST" {
-		return events.APIGatewayV2HTTPResponse{
-			StatusCode: http.StatusMethodNotAllowed,
-			Body:       http.StatusText(http.StatusMethodNotAllowed),
-		}, nil
-	}
-
 	var user User
 	err := json.Unmarshal([]byte(req.Body), &user)
 	if err != nil {
