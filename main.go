@@ -18,17 +18,19 @@ type User struct {
 	CPF string `json:"cpf"`
 }
 
-func handleRequest(req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
+func handleRequest(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 
 	var user User
+
 	err := json.Unmarshal([]byte(req.Body), &user)
 	if err != nil {
-		return events.APIGatewayV2HTTPResponse{
+		return events.APIGatewayProxyResponse{
 			StatusCode: http.StatusInternalServerError,
 			Body:       err.Error(),
 		}, nil
 	}
 
+	// timeout de 15 segundos
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*15))
 	defer cancel()
 
@@ -44,6 +46,12 @@ func handleRequest(req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPR
 	conn, err := pgx.Connect(ctx, url)
 	if err != nil {
 		log.Fatalf("Unable to connect to database: %v\n", err)
+
+		return events.APIGatewayProxyResponse{
+			StatusCode: http.StatusInternalServerError,
+			Headers:    map[string]string{"Content-Type": "text/plain; charset=utf-8"},
+			Body:       "error: unable to connect to database",
+		}, nil
 	}
 	defer conn.Close(context.Background())
 
@@ -51,20 +59,20 @@ func handleRequest(req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPR
 	err = conn.QueryRow(context.Background(), "SELECT id FROM clientes WHERE cpf=$1", user.CPF).Scan(&id)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			return events.APIGatewayV2HTTPResponse{
+			return events.APIGatewayProxyResponse{
 				StatusCode: http.StatusNotFound,
 				Headers:    map[string]string{"Content-Type": "text/plain; charset=utf-8"},
 				Body:       "CPF não encontrado",
 			}, nil
 		}
-		return events.APIGatewayV2HTTPResponse{
+		return events.APIGatewayProxyResponse{
 			StatusCode: http.StatusInternalServerError,
 			Headers:    map[string]string{"Content-Type": "text/plain; charset=utf-8"},
 			Body:       err.Error(),
 		}, nil
 	}
 
-	return events.APIGatewayV2HTTPResponse{
+	return events.APIGatewayProxyResponse{
 		StatusCode: http.StatusOK,
 		Headers:    map[string]string{"Content-Type": "text/plain; charset=utf-8"},
 		Body:       id,
